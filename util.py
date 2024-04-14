@@ -2,6 +2,7 @@ from ultralytics import YOLO
 import string
 import easyocr
 import cv2
+import os
 
 reader = easyocr.Reader(['en'], gpu = False)
 yoloModel = YOLO('./models/yolov8n.pt')
@@ -108,16 +109,6 @@ def format_license(text):
 
 
 def read_license_plate(license_plate_crop):
-    """
-    Read the license plate text from the given cropped image.
-
-    Args:
-        license_plate_crop (PIL.Image.Image): Cropped image containing the license plate.
-
-    Returns:
-        tuple: Tuple containing the formatted license plate text and its confidence score.
-    """
-
     detections = reader.readtext(license_plate_crop)
 
     for detection in detections:
@@ -125,8 +116,11 @@ def read_license_plate(license_plate_crop):
 
         text = text.upper().replace(' ', '')
 
+        return text, score
+        '''
         if license_complies_format(text):
             return format_license(text), score
+        '''
 
     return None, 0
 
@@ -149,7 +143,34 @@ def renderVideo():
     pass
 
 def renderImage(imagePath, imageName, outputPath):
+    # READING IMAGE METHOD
     frame = cv2.imread(imagePath + "/" + imageName, 0)
+    detections = licensePlateModel.predict(imagePath + "/" + imageName)
+    absPath = os.path.abspath(os.path.dirname(__file__)) + outputPath + "/" + imageName
+    H, W = frame.shape
+    print(absPath)
 
-    
-    out = cv2.imwrite(outputPath + "/out" + imagePath, frame)
+    # Bounding box
+    for plate in detections[0].boxes.data.tolist():
+        try:
+            # nparray = plate.numpy()[0]
+            x1, y1, x2, y2, score, id = plate
+            crop = frame[int(y1): int(y2), int(x1): int(x2)]
+            _, cropThresh = cv2.threshold(crop, 64, 255, cv2.THRESH_BINARY_INV)
+            plateText, plateScore = read_license_plate(cropThresh)
+            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
+            print(plateText)
+            cv2.putText(frame,
+                        plateText,
+                        (int(x1), int(y1 - 25 + (10 / 2))),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 0, 0, 255),
+                        2)
+        except:
+            print("Baddie")
+
+    cv2.imshow("A", frame)
+    cv2.waitKey(0) 
+    print(absPath)
+    cv2.imwrite(absPath, frame)
