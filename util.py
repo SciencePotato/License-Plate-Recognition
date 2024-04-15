@@ -1,9 +1,12 @@
 from ultralytics import YOLO
+from paddleocr import PaddleOCR, draw_ocr # main OCR dependencies
 import string
 import easyocr
 import cv2
 import os
 
+# Setup model
+ocr_model = PaddleOCR(lang='en', use_angle_cls=True, use_gpu= False)
 reader = easyocr.Reader(['en'], gpu = False)
 yoloModel = YOLO('./models/yolov8n.pt')
 licensePlateModel = YOLO('./models/license_plate_detector.pt')
@@ -139,7 +142,7 @@ def associate(licensePlate, tracks):
 
     return -1, -1, -1, -1, -1
 
-def renderVideo():
+def renderVideo(imagePath, imageName, outputPath):
     pass
 
 def renderImage(imagePath, imageName, outputPath):
@@ -156,10 +159,12 @@ def renderImage(imagePath, imageName, outputPath):
             # nparray = plate.numpy()[0]
             x1, y1, x2, y2, score, id = plate
             crop = frame[int(y1): int(y2), int(x1): int(x2)]
-            _, cropThresh = cv2.threshold(crop, 64, 255, cv2.THRESH_BINARY_INV)
+            # histogram equalization
+            equ = cv2.equalizeHist(crop)
+            _, cropThresh = cv2.threshold(equ, 64, 255, cv2.THRESH_BINARY_INV)
             plateText, plateScore = read_license_plate(cropThresh)
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
-            print(plateText)
+            print(plateText, plateScore)
             cv2.putText(frame,
                         plateText,
                         (int(x1), int(y1 - 25 + (10 / 2))),
@@ -170,7 +175,7 @@ def renderImage(imagePath, imageName, outputPath):
         except:
             print("Baddie")
 
-    cv2.imshow("A", frame)
-    cv2.waitKey(0) 
+    # cv2.imshow("A", frame)
+    # cv2.waitKey(0) 
     print(absPath)
     cv2.imwrite(absPath, frame)
