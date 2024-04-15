@@ -1,5 +1,4 @@
 from ultralytics import YOLO
-from paddleocr import PaddleOCR, draw_ocr # main OCR dependencies
 import string
 import easyocr
 import cv2
