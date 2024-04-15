@@ -5,7 +5,6 @@ import cv2
 import os
 
 # Setup model
-ocr_model = PaddleOCR(lang='en', use_angle_cls=True, use_gpu= False)
 reader = easyocr.Reader(['en'], gpu = False)
 yoloModel = YOLO('./models/yolov8n.pt')
 licensePlateModel = YOLO('./models/license_plate_detector.pt')
@@ -174,7 +173,7 @@ def renderImage(imagePath, imageName, outputPath):
         except:
             print("Baddie")
 
-    # cv2.imshow("A", frame)
-    # cv2.waitKey(0) 
+    cv2.imshow("A", frame)
+    cv2.waitKey(0) 
     print(absPath)
     cv2.imwrite(absPath, frame)
