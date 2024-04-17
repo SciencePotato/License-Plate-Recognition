@@ -79,14 +79,22 @@ def read_license_plate(license_plate_crop):
 
         text = text.upper().replace(' ', '')
 
-        return text, score
-        '''
         if license_complies_format(text):
             return format_license(text), score
-        '''
 
     return None, 0
 
+def readLicenseImage(license_plate_crop):
+    detections = reader.readtext(license_plate_crop)
+
+    for detection in detections:
+        bbox, text, score = detection
+
+        text = text.upper().replace(' ', '')
+
+        return text, score
+
+    return None, 0
 
 def associate(licensePlate, tracks):
     x1, y1, x2, y2, score = licensePlate
@@ -121,8 +129,8 @@ def renderImage(imagePath, imageName, outputPath):
             crop = frame[int(y1): int(y2), int(x1): int(x2)]
             # histogram equalization
             equ = cv2.equalizeHist(crop)
-            _, cropThresh = cv2.threshold(equ, 64, 255, cv2.THRESH_BINARY_INV)
-            plateText, plateScore = read_license_plate(cropThresh)
+            _, cropThresh = cv2.threshold(crop, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            plateText, plateScore = readLicenseImage(cropThresh)
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
             print(plateText, plateScore)
             cv2.putText(frame,
