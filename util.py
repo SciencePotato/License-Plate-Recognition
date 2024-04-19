@@ -1,4 +1,5 @@
 from ultralytics import YOLO
+import numpy as np
 import string
 import easyocr
 import cv2
@@ -26,15 +27,6 @@ dict_int_to_char = {'0': 'O',
 
 
 def license_complies_format(text):
-    """
-    Check if the license plate text complies with the required format.
-
-    Args:
-        text (str): License plate text.
-
-    Returns:
-        bool: True if the license plate complies with the format, False otherwise.
-    """
     if len(text) != 7:
         return False
 
@@ -50,15 +42,6 @@ def license_complies_format(text):
         return False
 
 def format_license(text):
-    """
-    Format the license plate text by converting characters using the mapping dictionaries.
-
-    Args:
-        text (str): License plate text.
-
-    Returns:
-        str: Formatted license plate text.
-    """
     license_plate_ = ''
     mapping = {0: dict_int_to_char, 1: dict_int_to_char, 4: dict_int_to_char, 5: dict_int_to_char, 6: dict_int_to_char,
                2: dict_char_to_int, 3: dict_char_to_int}
@@ -97,38 +80,65 @@ def readLicenseImage(license_plate_crop):
     return None, 0
 
 def associate(licensePlate, tracks):
-    x1, y1, x2, y2, score = licensePlate
+    x1, y1, x2, y2, score, id = licensePlate
 
-    print(len(tracks))
     for trackObj in tracks:
         carX1, carY1, carX2, carY2 = trackObj.to_tlbr()
         carId = trackObj.track_id
-        print([carX1, carY1, carX2, carY2])
-    
         if x1 > carX1 and y1 > carY1 and x2 < carX2 and y2 < carY2:
             return carX1, carY1, carX2, carY2, carId
 
     return -1, -1, -1, -1, -1
 
-def renderVideo(imagePath, imageName, outputPath):
-    pass
+def get_car(license_plate, vehicle_track_ids):
+    x1, y1, x2, y2, score, class_id = license_plate
+
+    foundIt = False
+    for j in range(len(vehicle_track_ids)):
+        xcar1, ycar1, xcar2, ycar2, car_id = vehicle_track_ids[j]
+
+        if x1 > xcar1 and y1 > ycar1 and x2 < xcar2 and y2 < ycar2:
+            car_indx = j
+            foundIt = True
+            break
+
+    if foundIt:
+        return vehicle_track_ids[car_indx]
+
+    return -1, -1, -1, -1, -1
+
+def getContours(img):
+    biggest = np.array([])
+    maxArea = 0
+    imgContour = img.copy()  # Change - make a copy of the image to return
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    index = None
+    for i, cnt in enumerate(contours):  # Change - also provide index
+        area = cv2.contourArea(cnt)
+        if area > 500:
+            peri = cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt,0.02*peri, True)
+            if area > maxArea and len(approx) == 4:
+                biggest = approx
+                maxArea = area
+                index = i  # Also save index to contour
+
+    if index is not None: # Draw the biggest contour on the image
+        cv2.drawContours(imgContour, contours, index, (255, 0, 0), 3)
+
+    return biggest, imgContour  # Change - also return drawn image
 
 def renderImage(imagePath, imageName, outputPath):
     # READING IMAGE METHOD
     frame = cv2.imread(imagePath + "/" + imageName, 0)
     detections = licensePlateModel.predict(imagePath + "/" + imageName)
     absPath = os.path.abspath(os.path.dirname(__file__)) + outputPath + "/" + imageName
-    H, W = frame.shape
-    print(absPath)
 
     # Bounding box
     for plate in detections[0].boxes.data.tolist():
         try:
-            # nparray = plate.numpy()[0]
             x1, y1, x2, y2, score, id = plate
             crop = frame[int(y1): int(y2), int(x1): int(x2)]
-            # histogram equalization
-            equ = cv2.equalizeHist(crop)
             _, cropThresh = cv2.threshold(crop, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             plateText, plateScore = readLicenseImage(cropThresh)
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
@@ -141,9 +151,8 @@ def renderImage(imagePath, imageName, outputPath):
                         (0, 0, 0, 255),
                         2)
         except:
-            print("Baddie")
+            print("Error, Something went Wrong")
 
-    cv2.imshow("A", frame)
+    cv2.imshow("Output", frame)
     cv2.waitKey(0) 
-    print(absPath)
     cv2.imwrite(absPath, frame)

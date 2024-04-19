@@ -1,6 +1,5 @@
 import os
 from util import renderImage, renderVideo
-'''
 from deep_sort_realtime.deepsort_tracker import DeepSort
 from ultralytics import YOLO
 from util import *
@@ -13,24 +12,20 @@ cap = cv2.VideoCapture('./data/videos/sample.mp4')
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
-fps = cap.get(cv2.CAP_PROP_FPS)
+fps = 24
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 out = cv2.VideoWriter('./data/output/out.mp4', fourcc, fps, (width, height))
 
-output = {}
 deepSortTracker = DeepSort(max_age = 20)
 carId = [2, 3, 5, 7]
-
+association = {}
 frames = -1
+
 while True:
     frames += 1
     ret, frame = cap.read()
     if ret:
-        output[frames] = {}
-        detections = yoloModel(frame)[0]
-
-        cars = []
         # for detection in detections.boxes.data.tolist():
         #     x1, y1, x2, y2, score, id = detection
         #     # If Identification object ID is a car 
@@ -43,10 +38,56 @@ while True:
         #             x1, y1, x2, y2, score, id = plate
         #             licensePlates.append([x1, y1, x2, y2, score])
         
+        detections = yoloModel(frame)[0]
+        cars = []
+
+        for detection in detections.boxes.data.tolist():
+            x1, y1, x2, y2, score, id = detection 
+            if int(id) in carId:
+                cars.append([[x1, y1, x2 - x1, y2 - y1], score, id])
+
         # Object Track
-        # tracks = deepSortTracker.update_tracks(cars, frame = frame)
+        tracks = deepSortTracker.update_tracks(cars, frame = frame)
 
         licensePlate = licensePlateModel(frame)[0]
+        for license in licensePlate.boxes.data.tolist():
+            x1, y1, x2, y2, score, id = license
+            carX1, carY1, carX2, carY2, car_Id = associate(license, tracks)
+
+            if car_Id != -1:
+                cropLicense = frame[int(y1): int(y2), int(x1): int(x2), :]
+                grayCrop = cv2.cvtColor(cropLicense, cv2.COLOR_BGR2GRAY)
+                _, cropThresh = cv2.threshold(grayCrop, 64, 255, cv2.THRESH_BINARY_INV)
+
+                # Detectable Text over a threshold -> Render into CSV result
+                text, textScore = read_license_plate(cropThresh)
+                if text != None :
+                    if car_Id not in association.keys():
+                        association[car_Id] = dict()
+
+                    if text not in association[car_Id]: 
+                        association[car_Id][text] = 0
+
+                    association[car_Id][text] += 1
+
+                text, count = "", 0
+                if car_Id in association.keys():
+                    for val in association[car_Id]:
+                        if association[car_Id][val] > count:
+                            count = association[car_Id][val]
+                            text = val
+
+                cv2.rectangle(frame, (int(carX1), int(carY1)), (int(carX2), int(carY2)), (0, 0, 255), 12)
+                cv2.putText(frame,
+                            text,
+                            (int((carX2 + carX1) / 2), int(carY1 - 125 + (10 / 2))),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            4.3,
+                            (0, 0, 0),
+                            17)
+
+        out.write(frame)
+        '''
         for license in licensePlate.boxes.data.tolist():
             x1, y1, x2, y2, score, id = license
 
@@ -58,6 +99,7 @@ while True:
             # Detectable Text over a threshold -> Render into CSV result
             text, textScore = read_license_plate(cropThresh)
             if text and textScore >= 0.50: 
+                containValidText = True
                 H, W = cropThresh.shape
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 12)
                 cv2.putText(frame,
@@ -68,6 +110,7 @@ while True:
                             (0, 0, 0),
                             17)
         out.write(frame)
+        '''
 
     else:
         # Video End / Cv2.VideoRead Error
@@ -75,13 +118,19 @@ while True:
 
 out.release()
 cap.release()
-'''
 
 
-# PROCESSING IAMGE
+# PROCESSING IMAGE
 # READING IMAGE METHOD
-inPath = "./data/images"
-output = "/data/output/images"
-for file in os.listdir(os.fsencode(inPath)):
-    filename = os.fsdecode(file)
-    renderImage(inPath, filename, output)
+# inPath = "./data/images"
+# output = "/data/output/images"
+# for file in os.listdir(os.fsencode(inPath)):
+#     filename = os.fsdecode(file)
+#     renderImage(inPath, filename, output)
+
+# inPath = "./data/vidoes"
+# output = "/data/output/videos"
+# # PROCESSING VIDEO
+# for file in os.listdir(os.fsdecode(inPath)):
+#     filename = os.fsdecode(file)
+#     renderVideo(inPath, filename, output)
