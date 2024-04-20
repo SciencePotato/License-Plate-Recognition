@@ -1,13 +1,19 @@
 from ultralytics import YOLO
+from paddleocr import PaddleOCR, draw_ocr
+import easyocr
 import numpy as np
 import string
-import easyocr
 import cv2
+from PIL import Image
+import pytesseract
+import argparse
+import imutils
 
 # Setup model
 reader = easyocr.Reader(['en'], gpu = False)
 yoloModel = YOLO('./models/yolov8n.pt')
 licensePlateModel = YOLO('./models/license_plate_detector.pt')
+ocr = PaddleOCR(use_angle_cls = True, lang = 'en') # need to run only once to download and load model into memory
 
 # Mapping dictionaries for character conversion
 dict_char_to_int = {'O': '0',
@@ -105,6 +111,19 @@ def get_car(license_plate, vehicle_track_ids):
         return vehicle_track_ids[car_indx]
 
     return -1, -1, -1, -1, -1
+def deskew(image):
+    co_ords = np.column_stack(np.where(image > 0))
+    angle = cv2.minAreaRect(co_ords)[-1]
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+        (h, w) = image.shape[:2]
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE)
+    return rotated
 
 def order_points(pts):
     # Step 1: Find object center
@@ -116,7 +135,7 @@ def order_points(pts):
     # Step #4: Return vertices ordered by theta
     ind = np.argsort(theta)
     return pts[ind]
-    
+
 def getContours(img, original):  # Change - pass the original image too
     biggest = np.array([])
     maxArea = 0
@@ -155,40 +174,50 @@ def getContours(img, original):  # Change - pass the original image too
 
     return biggest, imgContour, warped  # Change - also return drawn image
 
+# TRY PADDLEOCR | DOESN'T WORK
+def renderImagePaddleOCR(imagePath, imageName, outputPath):
+    img_path = imagePath + "/" + imageName
+    result = ocr.ocr(img_path, cls=False, det=False)
+    for idx in range(len(result)):
+        res = result[idx]
+        for line in res:
+            print(line)
 
-def renderImage(imagePath, imageName, outputPath):
+def renderImageEasyOCR(imagePath, imageName, outputPath):
     # READING IMAGE METHOD
     frame = cv2.imread(imagePath + "/" + imageName)
-    detections = licensePlateModel.predict(imagePath + "/" + imageName)
+    frame = cv2.resize(frame, None, fx = 1.1, fy = 1.1, interpolation = cv2.INTER_CUBIC)
+    detections = licensePlateModel.predict(frame)
 
     # Bounding box
     try:
         for detection in detections[0].boxes.data.tolist():
-            x1, y1, x2, y2, score, id = detection
-            crop = frame[int(y1): int(y2), int(x1): int(x2)]
-            
-            kernel = np.ones((3,3))
-            imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-            imgBlur = cv2.GaussianBlur(imgGray, (5,5), 1)
-            cv2.imshow("blur", imgBlur)
-            cv2.waitKey(0) 
-            imgCanny = cv2.Canny(imgBlur, 0, 500, apertureSize=5)
-            _, cropThresh = cv2.threshold(imgGray, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            cv2.imshow("blur", cropThresh)
-            cv2.waitKey(0) 
-            cv2.imshow("canny", imgCanny)
-            cv2.waitKey(0) 
-            imgDial = cv2.dilate(imgCanny, kernel, iterations=3)
-            cv2.imshow("dial", imgDial)
-            cv2.waitKey(0) 
-            imgThres = cv2.erode(imgDial, kernel, iterations=2)
-            cv2.imshow("erode", imgThres)
-            cv2.waitKey(0) 
-            biggest, imgContour, warped = getContours(imgThres, crop)
-            cv2.imshow("contour", imgContour)
-            cv2.waitKey(0) 
-            cv2.imshow("Output", warped)
-            cv2.waitKey(0) 
+            try: 
+                x1, y1, x2, y2, score, id = detection
+                crop = frame[int(y1): int(y2), int(x1): int(x2)]
+                norm_img = np.zeros((crop.shape[0], crop.shape[1]))
+                img = cv2.normalize(crop, norm_img, 0, 255, cv2.NORM_MINMAX)
+                img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 15)
+                kernel = np.ones((3,3))
+                imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                # imgBlur = cv2.GaussianBlur(imgGray, (5,5), 1)
+                imgBlur = cv2.bilateralFilter(imgGray, 5, 75, 75)
+                # imgBlur = cv2.medianBlur(imgGray, 3)
+                imgCanny = cv2.Canny(imgBlur, 0, 500, apertureSize=5)
+                imgDial = cv2.dilate(imgCanny, kernel, iterations=3)
+                imgThres = cv2.erode(imgDial, kernel, iterations=2)
+                biggest, imgContour, warped = getContours(imgThres, crop)
+
+                # Final processing
+                _, originalThres = cv2.threshold(imgGray, 60, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                grayWarped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+                _, warpedThres = cv2.threshold(grayWarped, 60, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            except:
+                print("No Warpped - proceeding as normal")
+            cv2.imshow("ori", originalThres)
+            cv2.waitKey(0)
+            cv2.imshow("wrap", warpedThres)
+            cv2.waitKey(0)
     except:
         print("Error, Something went Wrong")
     # _, cropThresh = cv2.threshold(crop, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -202,3 +231,35 @@ def renderImage(imagePath, imageName, outputPath):
     #             0.6,
     #             (0, 0, 0, 255),
     #             2)
+
+
+# TRY MORE FILTRATION / POST PROCESSING | TESSERACT KINDA BROKEN
+def renderImageTesseractOCR(imagePath, imageName, outputPath):
+    original = cv2.imread(imagePath + "/" + imageName)
+    detections = licensePlateModel.predict(imagePath + "/" + imageName)
+    try:
+        for detection in detections[0].boxes.data.tolist():
+            x1, y1, x2, y2, score, id = detection
+            image = original[int(y1): int(y2), int(x1): int(x2)]
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+            dist = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
+            dist = cv2.normalize(dist, dist, 0, 1.0, cv2.NORM_MINMAX)
+            dist = (dist * 255).astype("uint8")
+            dist = cv2.threshold(dist, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+            opening = cv2.morphologyEx(dist, cv2.MORPH_OPEN, kernel)
+            cnts = cv2.findContours(opening.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cnts = imutils.grab_contours(cnts)
+            chars = []
+            for c in cnts:
+                (x, y, w, h) = cv2.boundingRect(c)
+                if w >= 35 and h >= 100:
+                    chars.append(c)
+            chars = np.vstack([chars[i] for i in range(0, len(chars))])
+            hull = cv2.convexHull(chars)
+            mask = np.zeros(image.shape[:2], dtype="uint8")
+            mask = cv2.dilate(mask, None, iterations=2)
+            final = cv2.bitwise_and(opening, opening, mask=mask)
+    except:
+        print("ERROR")
