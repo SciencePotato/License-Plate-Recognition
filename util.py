@@ -195,11 +195,11 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
             try: 
                 x1, y1, x2, y2, score, id = detection
                 crop = frame[int(y1): int(y2), int(x1): int(x2)]
-                norm_img = np.zeros((crop.shape[0], crop.shape[1]))
-                img = cv2.normalize(crop, norm_img, 0, 255, cv2.NORM_MINMAX)
-                img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 15)
+                # norm_img = np.zeros((crop.shape[0], crop.shape[1]))
+                # img = cv2.normalize(crop, norm_img, 0, 255, cv2.NORM_MINMAX)
+                # img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 15)
                 kernel = np.ones((3,3))
-                imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
                 # imgBlur = cv2.GaussianBlur(imgGray, (5,5), 1)
                 imgBlur = cv2.bilateralFilter(imgGray, 5, 75, 75)
                 # imgBlur = cv2.medianBlur(imgGray, 3)
@@ -209,29 +209,45 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                 biggest, imgContour, warped = getContours(imgThres, crop)
 
                 # Final processing
-                _, originalThres = cv2.threshold(imgGray, 60, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                _, originalThres = cv2.threshold(imgGray, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 grayWarped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-                _, warpedThres = cv2.threshold(grayWarped, 60, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                _, warpedThres = cv2.threshold(grayWarped, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+                # Text Reading
+                oriText, oriScore = readLicenseImage(originalThres)
+                warpText, warpScore = readLicenseImage(warpedThres)
+                text = warpText
+                if oriScore > warpScore:
+                    text = oriText
+                print(oriText, oriScore)
+                print(warpText, warpScore)
+                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
+                cv2.putText(frame,
+                            text,
+                            (int(x1), int(y1 - 25 + (10 / 2))),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (0, 255, 0, 255),
+                            2)
             except:
                 print("No Warpped - proceeding as normal")
-            cv2.imshow("ori", originalThres)
-            cv2.waitKey(0)
-            cv2.imshow("wrap", warpedThres)
-            cv2.waitKey(0)
+                x1, y1, x2, y2, score, id = detection
+                crop = frame[int(y1): int(y2), int(x1): int(x2)]
+                imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+                _, originalThres = cv2.threshold(imgGray, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                text, score = readLicenseImage(originalThres)
+                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
+                cv2.putText(frame,
+                            text,
+                            (int(x1), int(y1 - 25 + (10 / 2))),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (0, 255, 0, 255),
+                            2)
     except:
         print("Error, Something went Wrong")
-    # _, cropThresh = cv2.threshold(crop, 64, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # plateText, plateScore = readLicenseImage(cropThresh)
-    # cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
-    # print(plateText, plateScore)
-    # cv2.putText(frame,
-    #             plateText,
-    #             (int(x1), int(y1 - 25 + (10 / 2))),
-    #             cv2.FONT_HERSHEY_SIMPLEX,
-    #             0.6,
-    #             (0, 0, 0, 255),
-    #             2)
-
+    cv2.imshow("Output", frame)
+    cv2.waitKey(0)
 
 # TRY MORE FILTRATION / POST PROCESSING | TESSERACT KINDA BROKEN
 def renderImageTesseractOCR(imagePath, imageName, outputPath):
