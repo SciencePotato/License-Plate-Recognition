@@ -1,0 +1,5 @@
+train: /data/train
+val: /data/validation
+test: /data/test
+nc: 1  # Number of classes
+names: ['license']  # Class names
