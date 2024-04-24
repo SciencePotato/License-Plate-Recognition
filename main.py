@@ -6,14 +6,14 @@ import cv2
 yoloModel = YOLO('./models/yolov8n.pt')
 licensePlateModel = YOLO('./models/license_plate_detector.pt')
 
-cap = cv2.VideoCapture('./data/videos/sample.mp4')
+cap = cv2.VideoCapture('./data/videos/demoM.mp4')
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
 fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-out = cv2.VideoWriter('./data/output/out.mp4', fourcc, fps, (width, height))
+out = cv2.VideoWriter('./data/output/demoM.mp4', fourcc, fps, (width, height))
 
 deepSortTracker = DeepSort(max_age = 20)
 carId = [2, 3, 5, 7]
@@ -42,10 +42,10 @@ while True:
             if car_Id != -1:
                 cropLicense = frame[int(y1): int(y2), int(x1): int(x2), :]
                 grayCrop = cv2.cvtColor(cropLicense, cv2.COLOR_BGR2GRAY)
-                _, cropThresh = cv2.threshold(grayCrop, 64, 255, cv2.THRESH_BINARY_INV)
+                _, cropThresh = cv2.threshold(grayCrop, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
                 # Detectable Text over a threshold -> Render into CSV result
-                text, textScore = read_license_plate(cropThresh)
+                text, textScore = readLicenseImage(cropThresh)
                 if text != None :
                     if car_Id not in association.keys():
                         association[car_Id] = dict()
@@ -65,11 +65,11 @@ while True:
                 cv2.rectangle(frame, (int(carX1), int(carY1)), (int(carX2), int(carY2)), (0, 0, 255), 12)
                 cv2.putText(frame,
                             text,
-                            (int((carX2 + carX1) / 2), int(carY1 - 125 + (10 / 2))),
+                            (int(int(carX1 + carX2) / 2), int(int(carY1 + carY2 + 10) / 2)),
                             cv2.FONT_HERSHEY_SIMPLEX,
-                            4.3,
-                            (0, 0, 0),
-                            17)
+                            0.6,
+                            (0, 255, 0),
+                            2)
 
         out.write(frame)
 

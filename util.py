@@ -13,6 +13,7 @@ import imutils
 reader = easyocr.Reader(['en'], gpu = False)
 yoloModel = YOLO('./models/yolov8n.pt')
 licensePlateModel = YOLO('./models/license_plate_detector.pt')
+# licensePlateModel.train(data = "/Users/houchichan/Desktop/Dev/CS585/License-Plate-Recognition/data.yaml", epochs = 5, batch = 16)
 ocr = PaddleOCR(use_angle_cls = True, lang = 'en') # need to run only once to download and load model into memory
 
 # Mapping dictionaries for character conversion
@@ -188,6 +189,7 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
     frame = cv2.imread(imagePath + "/" + imageName)
     frame = cv2.resize(frame, None, fx = 1.1, fy = 1.1, interpolation = cv2.INTER_CUBIC)
     detections = licensePlateModel.predict(frame)
+    sub50, temp50, temp80 = 0, 0, 0
 
     # Bounding box
     try:
@@ -216,11 +218,9 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                 # Text Reading
                 oriText, oriScore = readLicenseImage(originalThres)
                 warpText, warpScore = readLicenseImage(warpedThres)
-                text = warpText
+                text, score = warpText, warpScore
                 if oriScore > warpScore:
-                    text = oriText
-                print(oriText, oriScore)
-                print(warpText, warpScore)
+                    text, score = oriText, oriScore
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
                 cv2.putText(frame,
                             text,
@@ -229,8 +229,13 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                             0.6,
                             (0, 255, 0, 255),
                             2)
+                if score >= 0.8: 
+                    temp80 += 1
+                elif score >= 0.5:
+                    temp50 += 1
+                else:
+                    sub50 += 1
             except:
-                print("No Warpped - proceeding as normal")
                 x1, y1, x2, y2, score, id = detection
                 crop = frame[int(y1): int(y2), int(x1): int(x2)]
                 imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
@@ -244,10 +249,17 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                             0.6,
                             (0, 255, 0, 255),
                             2)
+                if score >= 0.8: 
+                    temp80 += 1
+                elif score >= 0.5:
+                    temp50 += 1
+                else:
+                    sub50 += 1
     except:
         print("Error, Something went Wrong")
-    cv2.imshow("Output", frame)
-    cv2.waitKey(0)
+    return sub50, temp50, temp80
+    # cv2.imshow("Output", frame)
+    # cv2.waitKey(0)
 
 # TRY MORE FILTRATION / POST PROCESSING | TESSERACT KINDA BROKEN
 def renderImageTesseractOCR(imagePath, imageName, outputPath):
