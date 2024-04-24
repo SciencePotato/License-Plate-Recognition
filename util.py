@@ -1,3 +1,4 @@
+#imports
 from ultralytics import YOLO
 from paddleocr import PaddleOCR, draw_ocr
 import easyocr
@@ -13,6 +14,7 @@ import imutils
 reader = easyocr.Reader(['en'], gpu = False)
 yoloModel = YOLO('./models/yolov8n.pt')
 licensePlateModel = YOLO('./models/license_plate_detector.pt')
+# attempted fine-tuning
 # licensePlateModel.train(data = "/Users/houchichan/Desktop/Dev/CS585/License-Plate-Recognition/data.yaml", epochs = 5, batch = 16)
 ocr = PaddleOCR(use_angle_cls = True, lang = 'en') # need to run only once to download and load model into memory
 
@@ -33,6 +35,9 @@ dict_int_to_char = {'0': 'O',
 
 
 def license_complies_format(text):
+    '''
+    Check if the license plate complies with the specified format
+    '''
     if len(text) != 7:
         return False
 
@@ -48,6 +53,9 @@ def license_complies_format(text):
         return False
 
 def format_license(text):
+    '''
+    Format the license plate to comply with the specified format
+    '''
     license_plate_ = ''
     mapping = {0: dict_int_to_char, 1: dict_int_to_char, 4: dict_int_to_char, 5: dict_int_to_char, 6: dict_int_to_char,
                2: dict_char_to_int, 3: dict_char_to_int}
@@ -61,6 +69,9 @@ def format_license(text):
 
 
 def read_license_plate(license_plate_crop):
+    '''
+    Read the license plate from the cropped image. This is done using the EasyOCR library. (Unused version)
+    '''
     detections = reader.readtext(license_plate_crop)
 
     for detection in detections:
@@ -74,6 +85,9 @@ def read_license_plate(license_plate_crop):
     return None, 0
 
 def readLicenseImage(license_plate_crop):
+    '''
+    Read the license plate from the cropped image. This is done using the EasyOCR library.
+    '''
     detections = reader.readtext(license_plate_crop)
 
     for detection in detections:
@@ -86,6 +100,9 @@ def readLicenseImage(license_plate_crop):
     return None, 0
 
 def associate(licensePlate, tracks):
+    '''
+    Associate the license plate with the vehicle track given from deepsort
+    '''
     x1, y1, x2, y2, score, id = licensePlate
 
     for trackObj in tracks:
@@ -97,6 +114,9 @@ def associate(licensePlate, tracks):
     return -1, -1, -1, -1, -1
 
 def get_car(license_plate, vehicle_track_ids):
+    '''
+    Associate the license plate with the vehicle track given from deepsort (Unused version)
+    '''
     x1, y1, x2, y2, score, class_id = license_plate
 
     foundIt = False
@@ -112,7 +132,12 @@ def get_car(license_plate, vehicle_track_ids):
         return vehicle_track_ids[car_indx]
 
     return -1, -1, -1, -1, -1
+
+
 def deskew(image):
+    '''
+    Image warping to deskew the license plate
+    '''
     co_ords = np.column_stack(np.where(image > 0))
     angle = cv2.minAreaRect(co_ords)[-1]
     if angle < -45:
@@ -127,6 +152,9 @@ def deskew(image):
     return rotated
 
 def order_points(pts):
+    '''
+    Order the points of the license plate
+    '''
     # Step 1: Find object center
     center = np.mean(pts)
     # Step 2: Transpose Coordinate to object center
@@ -138,6 +166,9 @@ def order_points(pts):
     return pts[ind]
 
 def getContours(img, original):  # Change - pass the original image too
+    '''
+    Get the contours of the license plate, then warp the image such that the license plate is straight
+    '''
     biggest = np.array([])
     maxArea = 0
     imgContour = original.copy()  # Make a copy of the original image to return
@@ -177,6 +208,9 @@ def getContours(img, original):  # Change - pass the original image too
 
 # TRY PADDLEOCR | DOESN'T WORK
 def renderImagePaddleOCR(imagePath, imageName, outputPath):
+    '''
+    Render the image using the PaddleOCR library
+    '''
     img_path = imagePath + "/" + imageName
     result = ocr.ocr(img_path, cls=False, det=False)
     for idx in range(len(result)):
@@ -185,6 +219,9 @@ def renderImagePaddleOCR(imagePath, imageName, outputPath):
             print(line)
 
 def renderImageEasyOCR(imagePath, imageName, outputPath):
+    '''
+    Render the image using the EasyOCR library
+    '''
     # READING IMAGE METHOD
     frame = cv2.imread(imagePath + "/" + imageName)
     frame = cv2.resize(frame, None, fx = 1.1, fy = 1.1, interpolation = cv2.INTER_CUBIC)
@@ -192,6 +229,10 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
     sub50, temp50, temp80 = 0, 0, 0
 
     # Bounding box
+    # we apply filtering, denoising, and edge detection to the cropped image, then apply contour detection to find the license plate
+    # we then warp the image to straighten the license plate
+    # we apply thresholding to the warped image to get the final image
+    # we then use the EasyOCR library to read the license plate
     try:
         for detection in detections[0].boxes.data.tolist():
             try: 
@@ -263,6 +304,9 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
 
 # TRY MORE FILTRATION / POST PROCESSING | TESSERACT KINDA BROKEN
 def renderImageTesseractOCR(imagePath, imageName, outputPath):
+    '''
+    Render the image using the Tesseract OCR library
+    '''
     original = cv2.imread(imagePath + "/" + imageName)
     detections = licensePlateModel.predict(imagePath + "/" + imageName)
     try:

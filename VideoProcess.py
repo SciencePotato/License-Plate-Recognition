@@ -8,18 +8,18 @@ licensePlateModel = YOLO('./models/license_plate_detector.pt')
 
 cap = cv2.VideoCapture('./data/videos/demoM.mp4')
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
+# Video Writer
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  
 fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 out = cv2.VideoWriter('./data/output/demoM.mp4', fourcc, fps, (width, height))
-
+# DeepSort Tracker
 deepSortTracker = DeepSort(max_age = 20)
 carId = [2, 3, 5, 7]
 association = {}
 frames = -1
-
+# Video Process
 while True:
     frames += 1
     ret, frame = cap.read()
