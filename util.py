@@ -4,7 +4,7 @@ from paddleocr import PaddleOCR
 import easyocr
 import numpy as np
 import cv2
-import pytesseract # Tried didn't succeed
+import pytesseract # Tried Tesseract without success
 import imutils
 
 # Setup model
@@ -48,7 +48,7 @@ def formatLicensePlate(text):
 
 def readLicenseImage(license_plate_crop):
     '''
-    Read the license plate from the cropped image. This is done using the EasyOCR library.
+    Read the license plate from the cropped image using EasyOCR.
     '''
     detections = reader.readtext(license_plate_crop)
 
@@ -63,7 +63,7 @@ def readLicenseImage(license_plate_crop):
 
 def associate(licensePlate, tracks):
     '''
-    Associate the license plate with the vehicle track given from deepsort
+    Associate the license plate with a vehicle track from DeepSort.
     '''
     x1, y1, x2, y2, _, _ = licensePlate
 
@@ -175,7 +175,7 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                 grayWarped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
                 _, warpedThres = cv2.threshold(grayWarped, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-                # Text Reading | Based on whichever grants the best result
+                # Use the OCR result with the higher confidence score.
                 oriText, oriScore = readLicenseImage(originalThres)
                 warpText, warpScore = readLicenseImage(warpedThres)
                 text, score = warpText, warpScore
@@ -224,10 +224,10 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
         cv2.imshow("Final", frame)
         cv2.waitKey(0)
     except:
-        print("Error, Something went Wrong")
+        print("An error occurred while processing the image.")
     return sub50, temp50, temp80
 
-# TRY PADDLEOCR | DOESN'T WORK RAN FOR 10 + HOURS ON SINGULAR IMAGE WITHOUT ANY RESULT 
+# PaddleOCR experiment: ran for over 10 hours on a single image without a result.
 def renderImagePaddleOCR(imagePath, imageName, outputPath):
     '''
     Render the image using the PaddleOCR library
@@ -240,7 +240,7 @@ def renderImagePaddleOCR(imagePath, imageName, outputPath):
             print(line)
 
 
-# TRY MORE FILTRATION / POST PROCESSING | TESSERACT KINDA BROKEN
+# Tesseract experiment: not working; needs more filtering and post-processing.
 def renderImageTesseractOCR(imagePath, imageName, outputPath):
     '''
     Render the image using the Tesseract OCR library
@@ -272,4 +272,4 @@ def renderImageTesseractOCR(imagePath, imageName, outputPath):
             mask = cv2.dilate(mask, None, iterations=2)
             final = cv2.bitwise_and(opening, opening, mask=mask)
     except:
-        print("ERROR")
+        print("An error occurred while processing the image with Tesseract.")
