@@ -1,5 +1,16 @@
 # License-Plate-Recognition
 
+## Annotation conversion
+
+Run `python3 create.py` from this directory to convert the two annotation CSVs
+into YOLO class-0 labels: normalized center x/y, width, and height (not corners).
+All boxes for each image are kept, and names such as `vehicle.front.jpg` produce
+`vehicle.front.txt`. Non-finite values, nonpositive image dimensions, and boxes
+outside the image fail before any output files are opened.
+
+`python3 -m unittest -v test_annotations` uses synthetic CSVs and mocked file
+writes. It needs only the standard library and never loads models or media.
+
 This project is a simple license plate recognition system using OpenCV and EasyOCR. The system is able to detect and recognize license plates from images and videos.
 
 
