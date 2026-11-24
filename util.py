@@ -146,6 +146,7 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
     frame = cv2.resize(frame, None, fx = 1.1, fy = 1.1, interpolation = cv2.INTER_CUBIC)
     detections = licensePlateModel.predict(frame)
     sub50, temp50, temp80 = 0, 0, 0
+    text = ""
 
     # Bounding box
     # we apply filtering, denoising, and edge detection to the cropped image, then apply contour detection to find the license plate
@@ -153,7 +154,7 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
     # we apply thresholding to the warped image to get the final image
     # we then use the EasyOCR library to read the license plate
     try:
-        for detection in detections[0].boxes.data.tolist():
+        for detection in (detections[0].boxes.data.tolist() if detections else []):
             try: 
                 x1, y1, x2, y2, score, id = detection
                 crop = frame[int(y1): int(y2), int(x1): int(x2)]
@@ -183,7 +184,7 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                     text, score = oriText, oriScore
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
                 cv2.putText(frame,
-                            text,
+                            text or "",
                             (int(x1), int(y1 - 25 + (10 / 2))),
                             cv2.FONT_HERSHEY_SIMPLEX,
                             0.6,
@@ -205,7 +206,7 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
                 text, score = readLicenseImage(originalThres)
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
                 cv2.putText(frame,
-                            text,
+                            text or "",
                             (int(x1), int(y1 - 25 + (10 / 2))),
                             cv2.FONT_HERSHEY_SIMPLEX,
                             0.6,

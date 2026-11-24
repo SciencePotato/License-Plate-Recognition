@@ -19,3 +19,12 @@ The data directory contains the dataset used for training and testing the model.
 
 The model directory contains the pre-trained model used for license plate detection. The model is based on the YOLOv8 architecture.
 
+## Empty recognition results
+
+An image with no detected plates is displayed normally with zero confidence
+counts. Unreadable OCR text is not passed to OpenCV as `None`; the existing
+`readLicenseImage` return contract `(None, 0)` is preserved for video callers.
+
+`python3 -m unittest -v test_empty_results` requires NumPy and mocks model and
+OpenCV calls. It does not load weights, open windows, or process the dataset.
+
