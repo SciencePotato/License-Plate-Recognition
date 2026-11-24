@@ -19,3 +19,10 @@ The data directory contains the dataset used for training and testing the model.
 
 The model directory contains the pre-trained model used for license plate detection. The model is based on the YOLOv8 architecture.
 
+# Perspective corner ordering
+
+Corner angles are measured around the two-coordinate centroid, so translating
+a plate does not change its corner correspondences or twist the perspective
+mapping. Run `python3 -m unittest test_corner_order` for the synthetic geometry
+regressions without loading OCR/detection models.
+
