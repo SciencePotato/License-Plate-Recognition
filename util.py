@@ -96,7 +96,7 @@ def order_points(pts):
     '''
     Transpose Coordinate to Object center and find angles of the corner in a sorted format
     '''
-    center = np.mean(pts)
+    center = np.mean(pts, axis=0)
     shifted = pts - center
     theta = np.arctan2(shifted[:, 0], shifted[:, 1])
     ind = np.argsort(theta)
