@@ -19,3 +19,9 @@ The data directory contains the dataset used for training and testing the model.
 
 The model directory contains the pre-trained model used for license plate detection. The model is based on the YOLOv8 architecture.
 
+## Boundary tests
+
+`python3 -m unittest -v test_util` exercises both deskew angle branches. The test
+requires NumPy but mocks OpenCV and model calls; it does not load models,
+download weights, open windows, or process the dataset.
+
