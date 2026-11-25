@@ -7,6 +7,10 @@ Install dependencies from the requirements.txt file using pip.
 
 To run detection on image dataset, run the ImageProcess.py file.
 
+Image preprocessing failures propagate to the caller instead of returning
+partial success counts. Interrupting processing is not treated as an OCR
+fallback or a successful image result.
+
 
 To run detection on video, run the VideoProcess.py file.
 
