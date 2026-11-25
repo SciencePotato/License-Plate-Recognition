@@ -152,79 +152,45 @@ def renderImageEasyOCR(imagePath, imageName, outputPath):
     # we then warp the image to straighten the license plate
     # we apply thresholding to the warped image to get the final image
     # we then use the EasyOCR library to read the license plate
-    try:
-        for detection in detections[0].boxes.data.tolist():
-            try: 
-                x1, y1, x2, y2, score, id = detection
-                crop = frame[int(y1): int(y2), int(x1): int(x2)]
-                # norm_img = np.zeros((crop.shape[0], crop.shape[1]))
-                # img = cv2.normalize(crop, norm_img, 0, 255, cv2.NORM_MINMAX)
-                # img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 15)
-                kernel = np.ones((3,3))
-                imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-                imgBlur = cv2.GaussianBlur(imgGray, (5,5), 1)
-                # imgBlur = cv2.bilateralFilter(imgGray, 5, 75, 75)
-                # imgBlur = cv2.medianBlur(imgGray, 3)
-                imgCanny = cv2.Canny(imgBlur, 0, 500, apertureSize=5)
-                imgDial = cv2.dilate(imgCanny, kernel, iterations=3)
-                imgErode = cv2.erode(imgDial, kernel, iterations=2)
-                warped = warpImage(imgErode, crop)
+    for detection in detections[0].boxes.data.tolist():
+        x1, y1, x2, y2, score, id = detection
+        crop = frame[int(y1): int(y2), int(x1): int(x2)]
+        kernel = np.ones((3,3))
+        imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        imgBlur = cv2.GaussianBlur(imgGray, (5,5), 1)
+        imgCanny = cv2.Canny(imgBlur, 0, 500, apertureSize=5)
+        imgDial = cv2.dilate(imgCanny, kernel, iterations=3)
+        imgErode = cv2.erode(imgDial, kernel, iterations=2)
+        warped = warpImage(imgErode, crop)
 
-                # Final processing
-                _, originalThres = cv2.threshold(imgGray, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-                grayWarped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-                _, warpedThres = cv2.threshold(grayWarped, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-                # Text Reading | Based on whichever grants the best result
-                oriText, oriScore = readLicenseImage(originalThres)
-                warpText, warpScore = readLicenseImage(warpedThres)
+        _, originalThres = cv2.threshold(imgGray, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        text, score = readLicenseImage(originalThres)
+        if warped is not None:
+            grayWarped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+            _, warpedThres = cv2.threshold(grayWarped, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            warpText, warpScore = readLicenseImage(warpedThres)
+            if warpScore >= score:
                 text, score = warpText, warpScore
-                if oriScore > warpScore:
-                    text, score = oriText, oriScore
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
-                cv2.putText(frame,
-                            text,
-                            (int(x1), int(y1 - 25 + (10 / 2))),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0, 255, 0, 255),
-                            2)
 
-                # Performance Counter
-                if score >= 0.8: 
-                    temp80 += 1
-                elif score >= 0.5:
-                    temp50 += 1
-                else:
-                    sub50 += 1
-            except:
-                x1, y1, x2, y2, score, _ = detection
-                crop = frame[int(y1): int(y2), int(x1): int(x2)]
-                imgGray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-                _, originalThres = cv2.threshold(imgGray, 64, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-                text, score = readLicenseImage(originalThres)
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
-                cv2.putText(frame,
-                            text,
-                            (int(x1), int(y1 - 25 + (10 / 2))),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0, 255, 0, 255),
-                            2)
+        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0, 255), 4)
+        cv2.putText(frame,
+                   text,
+                   (int(x1), int(y1 - 25 + (10 / 2))),
+                   cv2.FONT_HERSHEY_SIMPLEX,
+                   0.6,
+                   (0, 255, 0, 255),
+                   2)
 
-                # Performance Counter
-                if score >= 0.8: 
-                    temp80 += 1
-                elif score >= 0.5:
-                    temp50 += 1
-                else:
-                    sub50 += 1
-        
-        print(text)
-        cv2.imshow("Final", frame)
-        cv2.waitKey(0)
-    except:
-        print("Error, Something went Wrong")
+        if score >= 0.8:
+            temp80 += 1
+        elif score >= 0.5:
+            temp50 += 1
+        else:
+            sub50 += 1
+
+    print(text)
+    cv2.imshow("Final", frame)
+    cv2.waitKey(0)
     return sub50, temp50, temp80
 
 # TRY PADDLEOCR | DOESN'T WORK RAN FOR 10 + HOURS ON SINGULAR IMAGE WITHOUT ANY RESULT 
